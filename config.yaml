@@ -1,0 +1,19 @@
+---
+postgres:
+  database: attendance_db
+  host: 172.16.90.176
+  port: 5432
+  user: postgres
+  password: password
+
+redis:
+  host: 172.16.63.139
+  port: 6379
+  password: ""
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  workers: 4
+  log_level: info
+
