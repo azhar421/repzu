@@ -16,6 +16,7 @@ COPY models/ models/
 COPY router/ router/
 COPY utils/ utils/
 COPY app.py app.py
+COPY config.yaml config.yaml
 COPY log.conf log.conf
 
 ENTRYPOINT ["gunicorn"]
