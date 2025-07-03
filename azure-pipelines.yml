@@ -1,0 +1,59 @@
+trigger:
+- main
+
+variables:
+  azureSubscription: 'attendance-connection'  
+  resourceGroup: 'attendance-rg'
+  acrName: 'attendanceacr5806'
+  acrLoginServer: 'attendanceacr5806.azurecr.io'
+  aksClusterName: 'attendance-aks'
+  imageName: 'attendance-api'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: BuildAndPush
+  displayName: Build and Push Docker Image to ACR
+  jobs:
+  - job: Build
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(azureSubscription)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Logging into ACR"
+          az acr login --name $(acrName)
+
+          echo "Building Docker image"
+          docker build -t $(acrLoginServer)/$(imageName):$(Build.BuildId) .
+
+          echo "Pushing image to ACR"
+          docker push $(acrLoginServer)/$(imageName):$(Build.BuildId)
+
+- stage: DeployToAKS
+  displayName: Deploy to AKS
+  dependsOn: BuildAndPush
+  jobs:
+  - job: Deploy
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(azureSubscription)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Getting AKS credentials"
+          az aks get-credentials --resource-group $(resourceGroup) --name $(aksClusterName) --overwrite-existing
+
+          echo "Updating deployment.yaml with new image tag"
+          sed -i "s|<IMAGE>|$(acrLoginServer)/$(imageName):$(Build.BuildId)|" manifests/deployment.yaml
+
+          echo "Deploying PostgreSQL"
+          kubectl apply -f manifests/postgres-deployment.yaml
+
+          echo "Deploying Application"
+          kubectl apply -f manifests/deployment.yaml
+          kubectl apply -f manifests/service.yaml
